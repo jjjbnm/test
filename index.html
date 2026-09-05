@@ -83,6 +83,8 @@
   .btn-ghost{background:transparent;border-color:var(--cream);color:var(--cream);}
   .btn-ghost:hover{background:var(--cream);color:var(--green-dark);}
   .btn-small{padding:.45rem .8rem;font-size:.85rem;}
+  .btn-ghost-dark{background:transparent;border-color:var(--ink);color:var(--ink);}
+  .btn-ghost-dark:hover{background:var(--ink);color:var(--cream);}
 
   .awning{
     height:11px;
@@ -345,6 +347,57 @@
   .review-text{color:#4a463b;font-size:.95rem;line-height:1.5;margin:.6rem 0;}
   .review-meta{font-size:.75rem;color:#999;}
 
+  /* ---------- updates board ---------- */
+  .updates-section{background:var(--cream);}
+  .updates-toolbar{display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:center;max-width:760px;margin:0 auto 1.6rem;}
+  .updates-tabs{display:flex;flex-wrap:wrap;gap:.5rem;}
+  .update-tab{
+    background:var(--kraft);border:2px solid var(--ink);border-radius:20px;
+    padding:.4rem 1.1rem;font-weight:700;font-size:.85rem;cursor:pointer;
+    transition:all .15s ease;font-family:'Heebo',sans-serif;color:var(--ink);
+  }
+  .update-tab:hover{background:var(--mustard);}
+  .update-tab.active{background:var(--green);color:white;border-color:var(--green);}
+  .updates-search input{
+    padding:.55rem 1rem;border:2px solid var(--ink);border-radius:20px;
+    font-family:'Heebo',sans-serif;font-size:.9rem;min-width:200px;color:var(--ink);background:white;
+  }
+  .updates-search input:focus{outline:none;border-color:var(--red);}
+  .updates-search input::placeholder{color:#999;}
+
+  .updates-list{max-width:760px;margin:0 auto 1.6rem;}
+  .update-card{
+    background:white;border:2px solid #ddd;border-radius:8px;
+    padding:1.2rem 1.4rem;margin-bottom:1rem;
+    box-shadow:2px 3px 0 rgba(0,0,0,.08);
+  }
+  .update-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem;margin-bottom:.5rem;}
+  .update-title{font-weight:700;color:var(--green-dark);font-size:1.05rem;}
+  .update-badge{
+    font-size:.7rem;font-weight:700;padding:.25rem .65rem;border-radius:12px;
+    white-space:nowrap;color:white;flex-shrink:0;
+  }
+  .update-badge.sale{background:var(--red);}
+  .update-badge.hours{background:var(--mustard);color:var(--ink);}
+  .update-badge.prices{background:var(--bg-blue);}
+  .update-badge.general{background:var(--green);}
+  .update-text{color:#4a463b;font-size:.92rem;line-height:1.5;margin-bottom:.5rem;}
+  .update-meta{font-size:.75rem;color:#999;}
+
+  .update-add-toggle{display:block;margin:0 auto 1.2rem;}
+  .update-form{
+    max-width:580px;margin:0 auto;background:var(--kraft);
+    border:2px solid var(--ink);border-radius:8px;padding:1.8rem;
+    box-shadow:4px 5px 0 rgba(0,0,0,.12);
+  }
+  .update-form h3{font-size:1.2rem;color:var(--green-dark);margin-bottom:1.4rem;font-weight:700;}
+  .input-group select{
+    width:100%;padding:.7rem;border:2px solid var(--ink);border-radius:6px;
+    font-family:'Heebo',sans-serif;font-size:.95rem;color:var(--ink);background:white;
+  }
+  .input-group select:focus{outline:none;border-color:var(--red);}
+  .update-error{color:var(--red);font-weight:700;font-size:.85rem;margin-top:1rem;text-align:center;}
+
   .idea-widget{position:fixed;bottom:1.4rem;right:1.4rem;z-index:60;}
   .help-widget{position:fixed;bottom:1.4rem;left:1.4rem;z-index:60;}
 
@@ -575,6 +628,61 @@
   </div>
 </section>
 
+<section class="updates-section" id="updates">
+  <div class="section-inner">
+    <div class="section-head reveal">
+      <h2>לוח עדכונים</h2>
+      <p>מבצעים, הודעות ועדכונים שוטפים מהחנות.</p>
+    </div>
+
+    <div class="updates-toolbar reveal">
+      <div class="updates-tabs" id="updatesTabs">
+        <button type="button" class="update-tab active" data-cat="all">הכל</button>
+        <button type="button" class="update-tab" data-cat="sale">מבצעים</button>
+        <button type="button" class="update-tab" data-cat="hours">שעות</button>
+        <button type="button" class="update-tab" data-cat="prices">מחירים</button>
+        <button type="button" class="update-tab" data-cat="general">כללי</button>
+      </div>
+      <div class="updates-search">
+        <input type="text" id="updatesSearch" placeholder="חיפוש בעדכונים...">
+      </div>
+    </div>
+
+    <div class="updates-list reveal" id="updatesList">
+      <div class="empty-state"><p>אין עדכונים להצגה.</p></div>
+    </div>
+
+    <button type="button" class="btn btn-ghost-dark update-add-toggle" id="updateAddToggle">+ הוספת עדכון</button>
+
+    <div class="update-form" id="updateForm" style="display:none;">
+      <h3>הוספת עדכון חדש</h3>
+      <div class="input-group">
+        <label for="updateTitle">כותרת:</label>
+        <input type="text" id="updateTitle" maxlength="60" placeholder="כותרת העדכון">
+      </div>
+      <div class="input-group">
+        <label for="updateBody">תוכן:</label>
+        <textarea id="updateBody" rows="3" maxlength="300" placeholder="תוכן העדכון"></textarea>
+      </div>
+      <div class="input-group">
+        <label for="updateCat">קטגוריה:</label>
+        <select id="updateCat">
+          <option value="sale">מבצעים</option>
+          <option value="hours">שעות</option>
+          <option value="prices">מחירים</option>
+          <option value="general">כללי</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label for="updateCode">קוד גישה:</label>
+        <input type="password" id="updateCode" placeholder="הזינו קוד">
+      </div>
+      <button type="button" class="btn btn-primary" id="updateSubmitBtn">פרסום עדכון</button>
+      <div id="updateError" class="update-error" style="display:none;">קוד שגוי. נסו שוב.</div>
+    </div>
+  </div>
+</section>
+
 <section class="location" id="location">
   <div class="section-inner">
     <div class="section-head reveal">
@@ -594,8 +702,8 @@
         </div>
         <div class="loc-actions">
           <a class="btn btn-primary tel-btn" href="tel:04-8481215" data-phone="04-8481215">התקשרו עכשיו</a>
-          <a class="btn btn-ghost" style="border-color:#221C14;" href="https://www.google.com/maps/search/?api=1&query=צבי+הרר+35+קרית+אתא" target="_blank" rel="noopener">פתחו בגוגל מפות</a>
-          <a class="btn btn-ghost" style="border-color:#221C14;" href="https://waze.com/ul?q=צבי+הרר+35+קרית+אתא&navigate=yes" target="_blank" rel="noopener">נווטו בוויז</a>
+          <a class="btn btn-ghost-dark" href="https://www.google.com/maps/search/?api=1&query=צבי+הרר+35+קרית+אתא" target="_blank" rel="noopener">פתחו בגוגל מפות</a>
+          <a class="btn btn-ghost-dark" href="https://waze.com/ul?q=צבי+הרר+35+קרית+אתא&navigate=yes" target="_blank" rel="noopener">נווטו בוויז</a>
         </div>
       </div>
       <a class="map-frame reveal map-static" href="https://www.google.com/maps/search/?api=1&query=%D7%A6%D7%91%D7%99%20%D7%94%D7%A8%D7%A8%2035%2C%20%D7%A7%D7%A8%D7%99%D7%AA%20%D7%90%D7%AA%D7%90" target="_blank" rel="noopener" aria-label="פתחו את המיקום בגוגל מפות">
@@ -982,6 +1090,143 @@
 
   // Load on start
   showReviews();
+</script>
+
+<script>
+  var UPDATES_KEY = 'updates_tovi';
+  var UPDATES_ACCESS_CODE = 'אנדרוטובי'; // simple front-end gate — anyone who views the page source can see it
+
+  var updatesListEl = document.getElementById('updatesList');
+  var updateTabs = document.querySelectorAll('.update-tab');
+  var updatesSearchInput = document.getElementById('updatesSearch');
+  var updateAddToggle = document.getElementById('updateAddToggle');
+  var updateFormEl = document.getElementById('updateForm');
+  var updateSubmitBtn = document.getElementById('updateSubmitBtn');
+  var updateErrorEl = document.getElementById('updateError');
+
+  var currentUpdateCat = 'all';
+  var currentUpdateSearch = '';
+
+  function escapeHtml(str){
+    var div = document.createElement('div');
+    div.textContent = str == null ? '' : str;
+    return div.innerHTML;
+  }
+
+  function updateCatLabel(cat){
+    if(cat === 'sale') return 'מבצע';
+    if(cat === 'hours') return 'שעות';
+    if(cat === 'prices') return 'מחירים';
+    return 'כללי';
+  }
+
+  function loadUpdatesList(){
+    var stored = localStorage.getItem(UPDATES_KEY);
+    if(!stored) return [];
+    try { return JSON.parse(stored); } catch(e){ return []; }
+  }
+
+  function saveUpdatesList(list){
+    try { localStorage.setItem(UPDATES_KEY, JSON.stringify(list)); } catch(e){}
+  }
+
+  function renderUpdatesList(){
+    var list = loadUpdatesList().slice().reverse(); // newest first
+
+    if(currentUpdateCat !== 'all'){
+      list = list.filter(function(u){ return u.cat === currentUpdateCat; });
+    }
+    if(currentUpdateSearch){
+      var q = currentUpdateSearch.toLowerCase();
+      list = list.filter(function(u){
+        return (u.title && u.title.toLowerCase().indexOf(q) > -1) ||
+               (u.body && u.body.toLowerCase().indexOf(q) > -1);
+      });
+    }
+
+    updatesListEl.innerHTML = '';
+
+    if(list.length === 0){
+      updatesListEl.innerHTML = '<div class="empty-state"><p>אין עדכונים להצגה.</p></div>';
+      return;
+    }
+
+    list.forEach(function(u){
+      var div = document.createElement('div');
+      div.className = 'update-card';
+      div.innerHTML =
+        '<div class="update-card-head">' +
+          '<span class="update-title">' + escapeHtml(u.title) + '</span>' +
+          '<span class="update-badge ' + u.cat + '">' + updateCatLabel(u.cat) + '</span>' +
+        '</div>' +
+        '<div class="update-text">' + escapeHtml(u.body) + '</div>' +
+        '<div class="update-meta">' + escapeHtml(u.date) + '</div>';
+      updatesListEl.appendChild(div);
+    });
+  }
+
+  updateTabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      updateTabs.forEach(function(t){ t.classList.remove('active'); });
+      tab.classList.add('active');
+      currentUpdateCat = tab.getAttribute('data-cat');
+      renderUpdatesList();
+    });
+  });
+
+  if(updatesSearchInput){
+    updatesSearchInput.addEventListener('input', function(){
+      currentUpdateSearch = this.value.trim();
+      renderUpdatesList();
+    });
+  }
+
+  if(updateAddToggle && updateFormEl){
+    updateAddToggle.addEventListener('click', function(){
+      var isOpen = updateFormEl.style.display !== 'none';
+      updateFormEl.style.display = isOpen ? 'none' : 'block';
+      updateAddToggle.textContent = isOpen ? '+ הוספת עדכון' : '– סגירת טופס';
+    });
+  }
+
+  if(updateSubmitBtn){
+    updateSubmitBtn.addEventListener('click', function(){
+      var title = document.getElementById('updateTitle').value.trim();
+      var body = document.getElementById('updateBody').value.trim();
+      var cat = document.getElementById('updateCat').value;
+      var code = document.getElementById('updateCode').value.trim();
+
+      updateErrorEl.style.display = 'none';
+
+      if(!title || !body){
+        alert('נא למלא כותרת ותוכן');
+        return;
+      }
+
+      if(code !== UPDATES_ACCESS_CODE){
+        updateErrorEl.textContent = 'קוד שגוי. נסו שוב.';
+        updateErrorEl.style.display = 'block';
+        return;
+      }
+
+      var now = new Date();
+      var dateStr = now.getDate() + '.' + (now.getMonth() + 1) + '.' + now.getFullYear();
+
+      var list = loadUpdatesList();
+      list.push({ title: title, body: body, cat: cat, date: dateStr });
+      saveUpdatesList(list);
+
+      document.getElementById('updateTitle').value = '';
+      document.getElementById('updateBody').value = '';
+      document.getElementById('updateCode').value = '';
+      updateFormEl.style.display = 'none';
+      updateAddToggle.textContent = '+ הוספת עדכון';
+
+      renderUpdatesList();
+    });
+  }
+
+  renderUpdatesList();
 </script>
 
 </body>
