@@ -674,8 +674,8 @@
         </select>
       </div>
       <div class="input-group">
-        <label for="updateCode">קוד גישה:</label>
-        <input type="password" id="updateCode" placeholder="הזינו קוד">
+        <label for="updateCode">סיסמת ניהול:</label>
+        <input type="password" id="updateCode" placeholder="הזינו את סיסמת הניהול">
       </div>
       <button type="button" class="btn btn-primary" id="updateSubmitBtn">פרסום עדכון</button>
       <div id="updateError" class="update-error" style="display:none;">קוד שגוי. נסו שוב.</div>
@@ -945,7 +945,7 @@
     getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
   import {
-    getAuth, signInAnonymously
+    getAuth, signInAnonymously, signInWithEmailAndPassword
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
   var firebaseConfig = {
@@ -1109,7 +1109,7 @@
   });
 
   /* ================= updates board ================= */
-  var UPDATES_ACCESS_CODE = 'אנדרוטובי'; // simple front-end gate — anyone who views the page source can see it
+  var ADMIN_EMAIL = 'helpme9284772@gmail.com'; // admin login — actual access control lives in Firestore Security Rules
 
   var updatesListEl = document.getElementById('updatesList');
   var updateTabs = document.querySelectorAll('.update-tab');
@@ -1206,7 +1206,7 @@
       var title = document.getElementById('updateTitle').value.trim();
       var body = document.getElementById('updateBody').value.trim();
       var cat = document.getElementById('updateCat').value;
-      var code = document.getElementById('updateCode').value.trim();
+      var password = document.getElementById('updateCode').value;
 
       updateErrorEl.style.display = 'none';
 
@@ -1215,8 +1215,8 @@
         return;
       }
 
-      if(code !== UPDATES_ACCESS_CODE){
-        updateErrorEl.textContent = 'קוד שגוי. נסו שוב.';
+      if(!password){
+        updateErrorEl.textContent = 'נא להזין סיסמה.';
         updateErrorEl.style.display = 'block';
         return;
       }
@@ -1226,7 +1226,10 @@
 
       updateSubmitBtn.disabled = true;
 
-      addDoc(updatesCol, { title: title, body: body, cat: cat, date: dateStr, createdAt: serverTimestamp() })
+      signInWithEmailAndPassword(auth, ADMIN_EMAIL, password)
+        .then(function(){
+          return addDoc(updatesCol, { title: title, body: body, cat: cat, date: dateStr, createdAt: serverTimestamp() });
+        })
         .then(function(){
           document.getElementById('updateTitle').value = '';
           document.getElementById('updateBody').value = '';
@@ -1236,7 +1239,12 @@
         })
         .catch(function(err){
           console.error('שגיאה בפרסום העדכון:', err);
-          alert('משהו השתבש בפרסום העדכון. נסו שוב.');
+          if(err && (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials')){
+            updateErrorEl.textContent = 'סיסמה שגויה. נסו שוב.';
+            updateErrorEl.style.display = 'block';
+          } else {
+            alert('משהו השתבש בפרסום העדכון. נסו שוב.');
+          }
         })
         .finally(function(){
           updateSubmitBtn.disabled = false;
