@@ -754,17 +754,45 @@
   }
   checkStatus();
 
+  // helper: try modern Clipboard API, fall back to legacy execCommand,
+  // and ALWAYS show visible feedback either way (so the button never looks dead)
+  function copyText(text){
+    return new Promise(function(resolve){
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){ resolve(true); }).catch(function(){
+          resolve(legacyCopy(text));
+        });
+      } else {
+        resolve(legacyCopy(text));
+      }
+    });
+  }
+  function legacyCopy(text){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch(e){
+      return false;
+    }
+  }
+
   // email button: copy address to clipboard as a visible fallback
   // (helps on devices with no mail app configured, where mailto: silently does nothing)
   var mailBtns = document.querySelectorAll('.mail-btn');
   mailBtns.forEach(function(btn){
     btn.addEventListener('click', function(){
       var email = 'helpme9284772@gmail.com';
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(email).then(function(){
-          showCopiedTip(btn, 'הכתובת הועתקה ✓');
-        }).catch(function(){});
-      }
+      copyText(email).then(function(ok){
+        showCopiedTip(btn, ok ? 'הכתובת הועתקה ✓' : email);
+      });
     });
   });
 
@@ -795,11 +823,10 @@
   telBtns.forEach(function(btn){
     btn.addEventListener('click', function(){
       var phone = btn.getAttribute('data-phone') || '';
-      if(navigator.clipboard && navigator.clipboard.writeText && phone){
-        navigator.clipboard.writeText(phone).then(function(){
-          showCopiedTip(btn, 'המספר הועתק ✓');
-        }).catch(function(){});
-      }
+      if(!phone) return;
+      copyText(phone).then(function(ok){
+        showCopiedTip(btn, ok ? 'המספר הועתק ✓' : phone);
+      });
     });
   });
 </script>
