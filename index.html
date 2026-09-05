@@ -383,6 +383,14 @@
   .update-badge.general{background:var(--green);}
   .update-text{color:#4a463b;font-size:.92rem;line-height:1.5;margin-bottom:.5rem;}
   .update-meta{font-size:.75rem;color:#999;}
+  .admin-delete-btn{
+    display:block;margin-top:.6rem;
+    background:none;border:1px solid #c0392b;color:#c0392b;
+    border-radius:14px;padding:.25rem .8rem;font-size:.72rem;font-weight:700;
+    cursor:pointer;font-family:'Heebo',sans-serif;
+    transition:background .15s ease,color .15s ease;
+  }
+  .admin-delete-btn:hover{background:#c0392b;color:white;}
 
   .update-add-toggle{display:block;margin:0 auto 1.2rem;}
   .update-form{
@@ -942,7 +950,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import {
-    getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp
+    getFirestore, collection, addDoc, deleteDoc, doc as fsDoc, onSnapshot, query, orderBy, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
   import {
     getAuth, signInAnonymously, signInWithEmailAndPassword
@@ -968,6 +976,24 @@
     var div = document.createElement('div');
     div.textContent = str == null ? '' : str;
     return div.innerHTML;
+  }
+
+  // Prompts for the admin password, signs in, then runs action() if successful.
+  // Used to gate deletes for both reviews and updates.
+  function askAdminPasswordAndRun(confirmLabel, action){
+    if(!window.confirm(confirmLabel)) return;
+    var password = window.prompt('הזינו את סיסמת הניהול כדי לאשר את המחיקה:');
+    if(!password) return;
+    signInWithEmailAndPassword(auth, ADMIN_EMAIL, password)
+      .then(function(){ return action(); })
+      .catch(function(err){
+        console.error('שגיאת מחיקה:', err);
+        if(err && (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials')){
+          alert('סיסמה שגויה. המחיקה בוטלה.');
+        } else {
+          alert('משהו השתבש במחיקה. נסו שוב.');
+        }
+      });
   }
 
   /* ================= reviews ================= */
@@ -1093,15 +1119,29 @@
       div.className = 'review-card';
       div.innerHTML = '<div class="review-header"><span class="review-stars">' + starStr + '</span><span class="review-meta">' + escapeHtml(item.date) + '</span></div>' +
         '<div class="review-name">' + escapeHtml(item.name) + '</div>' +
-        '<div class="review-text">' + escapeHtml(item.text) + '</div>';
+        '<div class="review-text">' + escapeHtml(item.text) + '</div>' +
+        '<button type="button" class="admin-delete-btn" data-id="' + item.id + '">מחיקה (למנהל)</button>';
       reviewsList.appendChild(div);
     });
   }
 
+  reviewsList.addEventListener('click', function(e){
+    var btn = e.target.closest('.admin-delete-btn');
+    if(!btn) return;
+    var id = btn.getAttribute('data-id');
+    askAdminPasswordAndRun('למחוק את הביקורת הזו לצמיתות?', function(){
+      return deleteDoc(fsDoc(db, 'reviews', id));
+    });
+  });
+
   // Live updates from Firestore — everyone who opens the site sees the same reviews
   onSnapshot(query(reviewsCol, orderBy('createdAt', 'desc')), function(snapshot) {
     var list = [];
-    snapshot.forEach(function(doc) { list.push(doc.data()); });
+    snapshot.forEach(function(docSnap) {
+      var data = docSnap.data();
+      data.id = docSnap.id;
+      list.push(data);
+    });
     renderReviews(list);
   }, function(err) {
     console.error('שגיאה בטעינת ביקורות:', err);
@@ -1160,17 +1200,31 @@
           '<span class="update-badge ' + u.cat + '">' + updateCatLabel(u.cat) + '</span>' +
         '</div>' +
         '<div class="update-text">' + escapeHtml(u.body) + '</div>' +
-        '<div class="update-meta">' + escapeHtml(u.date) + '</div>';
+        '<div class="update-meta">' + escapeHtml(u.date) + '</div>' +
+        '<button type="button" class="admin-delete-btn" data-id="' + u.id + '">מחיקה (למנהל)</button>';
       updatesListEl.appendChild(div);
     });
   }
+
+  updatesListEl.addEventListener('click', function(e){
+    var btn = e.target.closest('.admin-delete-btn');
+    if(!btn) return;
+    var id = btn.getAttribute('data-id');
+    askAdminPasswordAndRun('למחוק את העדכון הזה לצמיתות?', function(){
+      return deleteDoc(fsDoc(db, 'updates', id));
+    });
+  });
 
   var updatesCol = collection(db, 'updates');
 
   // Live updates from Firestore — everyone who opens the site sees the same board
   onSnapshot(query(updatesCol, orderBy('createdAt', 'desc')), function(snapshot) {
     allUpdates = [];
-    snapshot.forEach(function(doc) { allUpdates.push(doc.data()); });
+    snapshot.forEach(function(docSnap) {
+      var data = docSnap.data();
+      data.id = docSnap.id;
+      allUpdates.push(data);
+    });
     renderUpdatesList();
   }, function(err) {
     console.error('שגיאה בטעינת עדכונים:', err);
