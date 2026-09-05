@@ -939,7 +939,38 @@
   });
 </script>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyB2AQG1mapkuXhus5PaCTmW8FZ7N9RCnog",
+    authDomain: "tovi-zol-center.firebaseapp.com",
+    projectId: "tovi-zol-center",
+    storageBucket: "tovi-zol-center.firebasestorage.app",
+    messagingSenderId: "577668091153",
+    appId: "1:577668091153:web:36b7e4a1f2a1b86b3550b0",
+    measurementId: "G-F4GZSKVLH5"
+  };
+
+  var app = initializeApp(firebaseConfig);
+  var db = getFirestore(app);
+  var auth = getAuth(app);
+
+  signInAnonymously(auth).catch(function(err){ console.error('Firebase auth error:', err); });
+
+  function escapeHtml(str){
+    var div = document.createElement('div');
+    div.textContent = str == null ? '' : str;
+    return div.innerHTML;
+  }
+
+  /* ================= reviews ================= */
   var currentRating = 0;
   var allStars = document.querySelectorAll('.star');
   var ratingDisplay = document.getElementById('ratingDisplay');
@@ -992,6 +1023,8 @@
     });
   }
 
+  var reviewsCol = collection(db, 'reviews');
+
   // Submit button
   submitBtn.addEventListener('click', function() {
     if(currentRating === 0) {
@@ -1011,61 +1044,38 @@
     }
 
     var now = new Date();
-    var d = now.getDate();
-    var m = now.getMonth() + 1;
-    var y = now.getFullYear();
-    var dateStr = d + '.' + m + '.' + y;
+    var dateStr = now.getDate() + '.' + (now.getMonth() + 1) + '.' + now.getFullYear();
 
-    // Load existing
-    var list = [];
-    var stored = localStorage.getItem('reviews_tovi');
-    if(stored) {
-      try {
-        list = JSON.parse(stored);
-      } catch(e) {
-        list = [];
-      }
-    }
+    submitBtn.disabled = true;
 
-    // Add new
-    list.push({
+    addDoc(reviewsCol, {
       rating: currentRating,
       text: txt,
       name: name,
-      date: dateStr
+      date: dateStr,
+      createdAt: serverTimestamp()
+    }).then(function() {
+      // Show success
+      successMsg.style.display = 'block';
+      setTimeout(function() {
+        successMsg.style.display = 'none';
+      }, 2500);
+
+      // Clear form
+      document.getElementById('reviewForm').reset();
+      currentRating = 0;
+      allStars.forEach(function(s) { s.style.color = '#ddd'; });
+      ratingDisplay.textContent = 'בחרו דירוג';
+      charCounter.textContent = '0';
+    }).catch(function(err) {
+      console.error('שגיאה בשמירת הביקורת:', err);
+      alert('משהו השתבש בשליחת הביקורת. נסו שוב.');
+    }).finally(function() {
+      submitBtn.disabled = false;
     });
-
-    // Save
-    try {
-      localStorage.setItem('reviews_tovi', JSON.stringify(list));
-    } catch(e) {}
-
-    // Show success
-    successMsg.style.display = 'block';
-    setTimeout(function() {
-      successMsg.style.display = 'none';
-    }, 2500);
-
-    // Clear form
-    document.getElementById('reviewForm').reset();
-    currentRating = 0;
-    allStars.forEach(function(s) { s.style.color = '#ddd'; });
-    ratingDisplay.textContent = 'בחרו דירוג';
-    charCounter.textContent = '0';
-
-    // Refresh
-    showReviews();
   });
 
-  function showReviews() {
-    var list = [];
-    var stored = localStorage.getItem('reviews_tovi');
-    if(stored) {
-      try {
-        list = JSON.parse(stored);
-      } catch(e) {}
-    }
-
+  function renderReviews(list) {
     reviewsList.innerHTML = '';
 
     if(list.length === 0) {
@@ -1081,19 +1091,24 @@
 
       var div = document.createElement('div');
       div.className = 'review-card';
-      div.innerHTML = '<div class="review-header"><span class="review-stars">' + starStr + '</span><span class="review-meta">' + item.date + '</span></div>' +
-        '<div class="review-name">' + item.name + '</div>' +
-        '<div class="review-text">' + item.text + '</div>';
+      div.innerHTML = '<div class="review-header"><span class="review-stars">' + starStr + '</span><span class="review-meta">' + escapeHtml(item.date) + '</span></div>' +
+        '<div class="review-name">' + escapeHtml(item.name) + '</div>' +
+        '<div class="review-text">' + escapeHtml(item.text) + '</div>';
       reviewsList.appendChild(div);
     });
   }
 
-  // Load on start
-  showReviews();
-</script>
+  // Live updates from Firestore — everyone who opens the site sees the same reviews
+  onSnapshot(query(reviewsCol, orderBy('createdAt', 'desc')), function(snapshot) {
+    var list = [];
+    snapshot.forEach(function(doc) { list.push(doc.data()); });
+    renderReviews(list);
+  }, function(err) {
+    console.error('שגיאה בטעינת ביקורות:', err);
+    reviewsList.innerHTML = '<div class="empty-state"><p>שגיאה בטעינת הביקורות. נסו לרענן את הדף.</p></div>';
+  });
 
-<script>
-  var UPDATES_KEY = 'updates_tovi';
+  /* ================= updates board ================= */
   var UPDATES_ACCESS_CODE = 'אנדרוטובי'; // simple front-end gate — anyone who views the page source can see it
 
   var updatesListEl = document.getElementById('updatesList');
@@ -1106,12 +1121,7 @@
 
   var currentUpdateCat = 'all';
   var currentUpdateSearch = '';
-
-  function escapeHtml(str){
-    var div = document.createElement('div');
-    div.textContent = str == null ? '' : str;
-    return div.innerHTML;
-  }
+  var allUpdates = [];
 
   function updateCatLabel(cat){
     if(cat === 'sale') return 'מבצע';
@@ -1120,18 +1130,8 @@
     return 'כללי';
   }
 
-  function loadUpdatesList(){
-    var stored = localStorage.getItem(UPDATES_KEY);
-    if(!stored) return [];
-    try { return JSON.parse(stored); } catch(e){ return []; }
-  }
-
-  function saveUpdatesList(list){
-    try { localStorage.setItem(UPDATES_KEY, JSON.stringify(list)); } catch(e){}
-  }
-
   function renderUpdatesList(){
-    var list = loadUpdatesList().slice().reverse(); // newest first
+    var list = allUpdates.slice();
 
     if(currentUpdateCat !== 'all'){
       list = list.filter(function(u){ return u.cat === currentUpdateCat; });
@@ -1164,6 +1164,18 @@
       updatesListEl.appendChild(div);
     });
   }
+
+  var updatesCol = collection(db, 'updates');
+
+  // Live updates from Firestore — everyone who opens the site sees the same board
+  onSnapshot(query(updatesCol, orderBy('createdAt', 'desc')), function(snapshot) {
+    allUpdates = [];
+    snapshot.forEach(function(doc) { allUpdates.push(doc.data()); });
+    renderUpdatesList();
+  }, function(err) {
+    console.error('שגיאה בטעינת עדכונים:', err);
+    updatesListEl.innerHTML = '<div class="empty-state"><p>שגיאה בטעינת העדכונים. נסו לרענן את הדף.</p></div>';
+  });
 
   updateTabs.forEach(function(tab){
     tab.addEventListener('click', function(){
@@ -1212,21 +1224,25 @@
       var now = new Date();
       var dateStr = now.getDate() + '.' + (now.getMonth() + 1) + '.' + now.getFullYear();
 
-      var list = loadUpdatesList();
-      list.push({ title: title, body: body, cat: cat, date: dateStr });
-      saveUpdatesList(list);
+      updateSubmitBtn.disabled = true;
 
-      document.getElementById('updateTitle').value = '';
-      document.getElementById('updateBody').value = '';
-      document.getElementById('updateCode').value = '';
-      updateFormEl.style.display = 'none';
-      updateAddToggle.textContent = '+ הוספת עדכון';
-
-      renderUpdatesList();
+      addDoc(updatesCol, { title: title, body: body, cat: cat, date: dateStr, createdAt: serverTimestamp() })
+        .then(function(){
+          document.getElementById('updateTitle').value = '';
+          document.getElementById('updateBody').value = '';
+          document.getElementById('updateCode').value = '';
+          updateFormEl.style.display = 'none';
+          updateAddToggle.textContent = '+ הוספת עדכון';
+        })
+        .catch(function(err){
+          console.error('שגיאה בפרסום העדכון:', err);
+          alert('משהו השתבש בפרסום העדכון. נסו שוב.');
+        })
+        .finally(function(){
+          updateSubmitBtn.disabled = false;
+        });
     });
   }
-
-  renderUpdatesList();
 </script>
 
 </body>
