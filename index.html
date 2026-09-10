@@ -975,11 +975,14 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import {
-    getFirestore, collection, addDoc, deleteDoc, doc as fsDoc, onSnapshot, query, orderBy, serverTimestamp
+    getFirestore, collection, addDoc, deleteDoc, setDoc, doc as fsDoc, onSnapshot, query, orderBy, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
   import {
     getAuth, signInAnonymously, signInWithEmailAndPassword
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  import {
+    getMessaging, getToken, onMessage
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging.js";
 
   var firebaseConfig = {
     apiKey: "AIzaSyB2AQG1mapkuXhus5PaCTmW8FZ7N9RCnog",
@@ -994,6 +997,7 @@
   var app = initializeApp(firebaseConfig);
   var db = getFirestore(app);
   var auth = getAuth(app);
+  var VAPID_KEY = 'BOhsz4LvN4GQzm2tP-Akg1P-v5O2uUlbes9gScXU0JPgR5x7r3FpmV5_VSFwM1PYXMhoJZPAAUgxND2alzRndtY';
 
   signInAnonymously(auth).catch(function(err){ console.error('Firebase auth error:', err); });
 
@@ -1242,12 +1246,12 @@
 
   var updatesCol = collection(db, 'updates');
 
-  /* ---- browser notifications for new updates ---- */
+  /* ---- real push notifications (Firebase Cloud Messaging) ---- */
   var notifyBtn = document.getElementById('notifyBtn');
-  var updatesFirstLoad = true; // don't notify for updates that already existed on page load
+  var updatesFirstLoad = true; // kept so we don't re-trigger anything odd on first snapshot
 
   function setNotifyBtnLabel(){
-    if(!('Notification' in window)){
+    if(!('Notification' in window) || !('serviceWorker' in navigator)){
       notifyBtn.textContent = 'התראות לא נתמכות בדפדפן הזה';
       notifyBtn.disabled = true;
       return;
@@ -1261,18 +1265,46 @@
     }
   }
 
+  function registerForPush(){
+    navigator.serviceWorker.register('/firebase-messaging-sw.js').then(function(registration){
+      var messaging = getMessaging(app);
+      return getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration }).then(function(token){
+        if(!token) return;
+        // Save the device token so the server knows where to send pushes.
+        // Token itself is the document id, so re-registering never creates duplicates.
+        return setDoc(fsDoc(db, 'fcmTokens', token), { createdAt: serverTimestamp() });
+      }).then(function(){
+        // Foreground messages don't show a system notification automatically — show one ourselves.
+        onMessage(messaging, function(payload){
+          var title = (payload.notification && payload.notification.title) || 'עדכון חדש';
+          var body = (payload.notification && payload.notification.body) || '';
+          new Notification(title, { body: body });
+        });
+      });
+    }).catch(function(err){
+      console.error('שגיאה בהרשמה להתראות:', err);
+    });
+  }
+
   if(notifyBtn){
     setNotifyBtnLabel();
     notifyBtn.addEventListener('click', function(){
-      if(!('Notification' in window)) return;
+      if(!('Notification' in window) || !('serviceWorker' in navigator)) return;
       if(Notification.permission === 'granted'){
         alert('ההתראות כבר מופעלות.');
         return;
       }
-      Notification.requestPermission().then(function(){
+      Notification.requestPermission().then(function(permission){
         setNotifyBtnLabel();
+        if(permission === 'granted'){
+          registerForPush();
+        }
       });
     });
+    // If permission was already granted in an earlier visit, make sure the token is registered.
+    if('Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator){
+      registerForPush();
+    }
   }
 
   // Live updates from Firestore — everyone who opens the site sees the same board
@@ -1284,21 +1316,6 @@
       allUpdates.push(data);
     });
     renderUpdatesList();
-
-    // Notify about newly added updates only (skip the initial batch on page load).
-    // Note: this only fires while the site is open in the browser — it is not a
-    // true push notification that reaches the device when the site is closed.
-    if(!updatesFirstLoad && 'Notification' in window && Notification.permission === 'granted'){
-      snapshot.docChanges().forEach(function(change){
-        if(change.type === 'added'){
-          var u = change.doc.data();
-          new Notification('עדכון חדש: ' + (u.title || 'טובי זול סנטר'), {
-            body: u.body || '',
-            icon: undefined
-          });
-        }
-      });
-    }
     updatesFirstLoad = false;
   }, function(err) {
     console.error('שגיאה בטעינת עדכונים:', err);
@@ -1364,6 +1381,16 @@
           document.getElementById('updateCode').value = '';
           updateFormEl.style.display = 'none';
           updateAddToggle.textContent = '+ הוספת עדכון';
+
+          // Trigger the real push notification via the server function.
+          // Best-effort — if this fails, the update itself was already published successfully.
+          fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: title, body: body })
+          }).catch(function(err){
+            console.error('שגיאה בשליחת ההתראה (העדכון עצמו פורסם בהצלחה):', err);
+          });
         })
         .catch(function(err){
           console.error('שגיאה בפרסום העדכון:', err);
