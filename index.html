@@ -159,6 +159,8 @@
   .status-dot{width:8px;height:8px;border-radius:50%;background:var(--mustard);}
   .status-dot.open{background:#7FB87A;}
   .status-dot.closed{background:#C95C46;}
+  .status-dot.closing-soon{background:var(--mustard);}
+  .status-dot.opening-soon{background:var(--green-dark);}
 
   /* ---------- section shells ---------- */
   section{padding:4.5rem 5%;}
@@ -629,7 +631,7 @@
     </div>
     <div class="board reveal">
       <div class="board-row"><span>ראשון – חמישי</span><span class="tag-num">06:30–21:00</span></div>
-      <div class="board-row"><span>שישי</span><span class="tag-num">06:30–15:00</span></div>
+      <div class="board-row"><span>שישי</span><span class="tag-num">06:30–16:00</span></div>
       <div class="board-row"><span>שבת</span><span class="tag-num">סגור</span></div>
       <div class="board-note">* שעות לדוגמה — ניתן לעדכן בהתאם לשעות הפעילות בפועל</div>
     </div>
@@ -642,6 +644,8 @@
       <h2>לוח עדכונים</h2>
       <p>מבצעים, הודעות ועדכונים שוטפים מהחנות.</p>
     </div>
+
+    <button type="button" class="btn btn-ghost-dark" id="notifyBtn" style="margin-bottom:1.2rem;">🔔 קבלו התראה על עדכונים חדשים</button>
 
     <div class="updates-toolbar reveal">
       <div class="updates-tabs" id="updatesTabs">
@@ -846,20 +850,41 @@
   var HOURS = {
     0: null,            // ראשון? (יוצא ב-getDay: 0=Sun)
     sun_thu: [6.5,21],
-    fri: [6.5,15],
+    fri: [6.5,16],
     sat: null
   };
   function checkStatus(){
     var now = new Date();
     var day = now.getDay(); // 0=Sun..6=Sat
     var hour = now.getHours() + now.getMinutes()/60;
+
+    var dot = document.getElementById('statusDot');
+    var text = document.getElementById('statusText');
+
+    // opening soon — 06:00–06:30, on the days the store opens at 6:30 (Sun–Fri)
+    if(day >= 0 && day <= 5 && hour >= 6 && hour < 6.5){
+      dot.classList.add('opening-soon');
+      text.textContent = 'נפתח בקרוב (בשעה 6:30)';
+      return;
+    }
+
+    // closing soon — last hour before closing: 20:00–21:00 Sun–Thu, 15:00–16:00 Fri
+    if(day >= 0 && day <= 4 && hour >= 20 && hour < 21){
+      dot.classList.add('closing-soon');
+      text.textContent = 'נסגר בקרוב (עד השעה 21:00)';
+      return;
+    }
+    if(day === 5 && hour >= 15 && hour < 16){
+      dot.classList.add('closing-soon');
+      text.textContent = 'נסגר בקרוב (עד השעה 16:00)';
+      return;
+    }
+
     var open = false;
     if(day >= 0 && day <= 4){ open = hour >= HOURS.sun_thu[0] && hour < HOURS.sun_thu[1]; }
     else if(day === 5){ open = hour >= HOURS.fri[0] && hour < HOURS.fri[1]; }
     else { open = false; }
 
-    var dot = document.getElementById('statusDot');
-    var text = document.getElementById('statusText');
     if(open){
       dot.classList.add('open');
       text.textContent = 'פתוח כרגע';
@@ -1217,6 +1242,39 @@
 
   var updatesCol = collection(db, 'updates');
 
+  /* ---- browser notifications for new updates ---- */
+  var notifyBtn = document.getElementById('notifyBtn');
+  var updatesFirstLoad = true; // don't notify for updates that already existed on page load
+
+  function setNotifyBtnLabel(){
+    if(!('Notification' in window)){
+      notifyBtn.textContent = 'התראות לא נתמכות בדפדפן הזה';
+      notifyBtn.disabled = true;
+      return;
+    }
+    if(Notification.permission === 'granted'){
+      notifyBtn.textContent = '🔔 התראות מופעלות';
+    } else if(Notification.permission === 'denied'){
+      notifyBtn.textContent = '🔕 התראות נחסמו (ניתן לאשר דרך הגדרות הדפדפן)';
+    } else {
+      notifyBtn.textContent = '🔔 קבלו התראה על עדכונים חדשים';
+    }
+  }
+
+  if(notifyBtn){
+    setNotifyBtnLabel();
+    notifyBtn.addEventListener('click', function(){
+      if(!('Notification' in window)) return;
+      if(Notification.permission === 'granted'){
+        alert('ההתראות כבר מופעלות.');
+        return;
+      }
+      Notification.requestPermission().then(function(){
+        setNotifyBtnLabel();
+      });
+    });
+  }
+
   // Live updates from Firestore — everyone who opens the site sees the same board
   onSnapshot(query(updatesCol, orderBy('createdAt', 'desc')), function(snapshot) {
     allUpdates = [];
@@ -1226,6 +1284,22 @@
       allUpdates.push(data);
     });
     renderUpdatesList();
+
+    // Notify about newly added updates only (skip the initial batch on page load).
+    // Note: this only fires while the site is open in the browser — it is not a
+    // true push notification that reaches the device when the site is closed.
+    if(!updatesFirstLoad && 'Notification' in window && Notification.permission === 'granted'){
+      snapshot.docChanges().forEach(function(change){
+        if(change.type === 'added'){
+          var u = change.doc.data();
+          new Notification('עדכון חדש: ' + (u.title || 'טובי זול סנטר'), {
+            body: u.body || '',
+            icon: undefined
+          });
+        }
+      });
+    }
+    updatesFirstLoad = false;
   }, function(err) {
     console.error('שגיאה בטעינת עדכונים:', err);
     updatesListEl.innerHTML = '<div class="empty-state"><p>שגיאה בטעינת העדכונים. נסו לרענן את הדף.</p></div>';
@@ -1308,4 +1382,4 @@
 </script>
 
 </body>
-  </html>
+</html>
