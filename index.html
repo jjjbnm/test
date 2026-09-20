@@ -633,7 +633,7 @@
       <div class="board-row"><span>ראשון – חמישי</span><span class="tag-num">06:30–21:00</span></div>
       <div class="board-row"><span>שישי</span><span class="tag-num">06:30–16:00</span></div>
       <div class="board-row"><span>שבת</span><span class="tag-num">סגור</span></div>
-      <div class="board-note">* שעות לדוגמה — ניתן לעדכן בהתאם לשעות הפעילות בפועל</div>
+      <div class="board-note">בערבי חג (ראשון–חמישי) פתוח עד 15:00. בערב חג שחל בשישי פתוח כרגיל. בחגים סגור.</div>
     </div>
   </div>
 </section>
@@ -846,20 +846,77 @@
     els.forEach(function(el){ el.classList.add('is-visible'); });
   }
 
-  // open/closed status based on example hours above — edit HOURS to match real hours
+  // שעות הבסיס: ראשון–חמישי 06:30–21:00, שישי 06:30–16:00.
+  // ערבי חג בראשון–חמישי נסגרים ב-15:00; ערב חג ביום שישי נשאר כרגיל.
   var HOURS = {
-    0: null,            // ראשון? (יוצא ב-getDay: 0=Sun)
     sun_thu: [6.5,21],
     fri: [6.5,16],
+    holiday_eve_sun_thu: [6.5,15],
     sat: null
   };
+
+  var ISRAEL_TIME_ZONE = 'Asia/Jerusalem';
+  var HEBREW_DATE_FORMATTER = new Intl.DateTimeFormat('en-u-ca-hebrew-nu-latn', {
+    timeZone: ISRAEL_TIME_ZONE,
+    day: 'numeric',
+    month: 'long'
+  });
+  var ISRAEL_CLOCK_FORMATTER = new Intl.DateTimeFormat('en-US', {
+    timeZone: ISRAEL_TIME_ZONE,
+    weekday: 'short',
+    hour: 'numeric',
+    minute: 'numeric',
+    hourCycle: 'h23'
+  });
+
+  function getDateParts(formatter, date){
+    return formatter.formatToParts(date).reduce(function(parts, part){
+      if(part.type !== 'literal') parts[part.type] = part.value;
+      return parts;
+    }, {});
+  }
+
+  // The site follows the Israeli Jewish calendar for the major full holidays.
+  // These are the dates on which the shop is closed, not fast days or minor holidays.
+  function isJewishHoliday(date){
+    var parts = getDateParts(HEBREW_DATE_FORMATTER, date);
+    var day = Number(parts.day);
+    var month = parts.month;
+
+    return (
+      (month === 'Tishri' && (day === 1 || day === 2 || day === 10 || day === 15 || day === 22)) ||
+      (month === 'Nisan' && (day === 15 || day === 21)) ||
+      (month === 'Sivan' && day === 6)
+    );
+  }
+
+  function isHolidayEve(date){
+    return !isJewishHoliday(date) && isJewishHoliday(new Date(date.getTime() + 24 * 60 * 60 * 1000));
+  }
+
   function checkStatus(){
     var now = new Date();
-    var day = now.getDay(); // 0=Sun..6=Sat
-    var hour = now.getHours() + now.getMinutes()/60;
+    var clock = getDateParts(ISRAEL_CLOCK_FORMATTER, now);
+    var dayNames = {Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6};
+    var day = dayNames[clock.weekday];
+    var hour = Number(clock.hour) + Number(clock.minute)/60;
+    var holiday = isJewishHoliday(now);
+    var holidayEve = isHolidayEve(now);
 
     var dot = document.getElementById('statusDot');
     var text = document.getElementById('statusText');
+    dot.classList.remove('open','closed','closing-soon','opening-soon');
+
+    // A holiday always overrides the weekday schedule, including Friday holidays.
+    if(holiday){
+      dot.classList.add('closed');
+      text.textContent = 'סגור היום — חג';
+      return;
+    }
+
+    var closingHour = (holidayEve && day >= 0 && day <= 4) ? HOURS.holiday_eve_sun_thu[1] :
+      (day === 5 ? HOURS.fri[1] : HOURS.sun_thu[1]);
+    var openingHour = day === 5 ? HOURS.fri[0] : HOURS.sun_thu[0];
 
     // opening soon — 06:00–06:30, on the days the store opens at 6:30 (Sun–Fri)
     if(day >= 0 && day <= 5 && hour >= 6 && hour < 6.5){
@@ -868,21 +925,16 @@
       return;
     }
 
-    // closing soon — last hour before closing: 20:00–21:00 Sun–Thu, 15:00–16:00 Fri
-    if(day >= 0 && day <= 4 && hour >= 20 && hour < 21){
+    // closing soon — the last hour before the applicable closing time.
+    if(day >= 0 && day <= 5 && hour >= closingHour - 1 && hour < closingHour){
       dot.classList.add('closing-soon');
-      text.textContent = 'נסגר בקרוב (עד השעה 21:00)';
-      return;
-    }
-    if(day === 5 && hour >= 15 && hour < 16){
-      dot.classList.add('closing-soon');
-      text.textContent = 'נסגר בקרוב (עד השעה 16:00)';
+      text.textContent = 'נסגר בקרוב (עד השעה ' + (closingHour === 15 ? '15:00' : closingHour === 16 ? '16:00' : '21:00') + ')';
       return;
     }
 
     var open = false;
-    if(day >= 0 && day <= 4){ open = hour >= HOURS.sun_thu[0] && hour < HOURS.sun_thu[1]; }
-    else if(day === 5){ open = hour >= HOURS.fri[0] && hour < HOURS.fri[1]; }
+    if(day >= 0 && day <= 4){ open = hour >= openingHour && hour < closingHour; }
+    else if(day === 5){ open = hour >= openingHour && hour < closingHour; }
     else { open = false; }
 
     if(open){
