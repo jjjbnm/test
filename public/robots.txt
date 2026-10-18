@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Sitemap: https://671bb252-9ca1-4065-b853-0dbcee4d9267-00-se2pnrs0wa4a.pike.replit.dev/sitemap.xml
