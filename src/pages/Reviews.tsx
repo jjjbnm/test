@@ -1,28 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Star, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 
 type Review = { id: string; name: string; rating: number; text: string; date: string };
 
 export default function Reviews() {
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const queryClient = useQueryClient();
+  const { data: reviews = [], isLoading } = useQuery<Review[]>({ queryKey: ["reviews"], queryFn: async () => {
+    const response = await fetch("/api/reviews");
+    if (!response.ok) throw new Error("Failed to load reviews");
+    return response.json();
+  } });
+  const createReview = useMutation({ mutationFn: async (review: Omit<Review, "id">) => {
+    const response = await fetch("/api/reviews", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(review) });
+    if (!response.ok) throw new Error("Failed to save review");
+    return response.json();
+  }, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["reviews"] }) });
   const [name, setName] = useState("");
   const [text, setText] = useState("");
   const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
 
-  useEffect(() => {
-    try { setReviews(JSON.parse(localStorage.getItem("reviews_tovi") || "[]")); } catch {}
-  }, []);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
-    const r: Review = { id: Math.random().toString(36).slice(2), name: name.trim() || "לקוח/ה", rating, text: text.trim(), date: new Date().toISOString() };
-    const updated = [r, ...reviews];
-    setReviews(updated);
-    localStorage.setItem("reviews_tovi", JSON.stringify(updated));
-    setName(""); setText(""); setRating(5);
+    createReview.mutate({ name: name.trim() || "לקוח/ה", rating, text: text.trim(), date: new Date().toISOString() }, {
+      onSuccess: () => { setName(""); setText(""); setRating(5); }
+    });
   };
 
   return (
@@ -70,21 +75,23 @@ export default function Reviews() {
             <textarea placeholder="ספרו לנו איך היה..." value={text} onChange={e => setText(e.target.value)} required
               className="w-full p-4 resize-none h-32 focus:outline-none text-base leading-relaxed"
               style={{ background: "#FBF6EA", border: "2px solid #221C14", borderRadius: 8, color: "#221C14" }} />
-            <button type="submit" disabled={!text.trim()}
+            <button type="submit" disabled={!text.trim() || createReview.isPending}
               className="w-full py-4 font-bold text-base"
               style={{
                 background: "#D1432A", border: "2px solid #221C14", borderRadius: 8,
                 color: "#FBF6EA", boxShadow: "2px 3px 0 rgba(0,0,0,0.2)",
                 opacity: !text.trim() ? 0.5 : 1, cursor: !text.trim() ? "not-allowed" : "pointer",
               }}>
-              שלח ביקורת לחנות
+              {createReview.isPending ? "שומר..." : "שלח ביקורת לחנות"}
             </button>
           </form>
         </div>
 
         {/* reviews list */}
         <h3 className="text-lg font-bold" style={{ color: "#221C14" }}>ביקורות אחרונות</h3>
-        {reviews.length === 0 ? (
+        {isLoading ? (
+          <div className="py-16 text-center" style={{ color: "#6b6555" }}>טוען ביקורות...</div>
+        ) : reviews.length === 0 ? (
           <div className="py-16 text-center"
             style={{ background: "#ECDBB0", border: "2px dashed #221C14", borderRadius: 8 }}>
             <p style={{ fontWeight: 700, color: "#221C14" }}>עדיין אין ביקורות</p>
