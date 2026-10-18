@@ -1,9 +1,10 @@
 import { Link, useRoute } from "wouter";
-import { Store, Clock, MapPin, Bell, MessageSquare, HelpCircle } from "lucide-react";
+import { Store, Clock, MapPin, Bell, MessageSquare, HelpCircle, ShoppingBasket } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "בית", icon: Store },
   { href: "/hours", label: "שעות", icon: Clock },
+  { href: "/menu", label: "תפריט", icon: ShoppingBasket },
   { href: "/location", label: "מיקום", icon: MapPin },
   { href: "/notices", label: "מודעות", icon: Bell },
   { href: "/reviews", label: "ביקורות", icon: MessageSquare },

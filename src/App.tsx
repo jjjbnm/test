@@ -7,6 +7,7 @@ import Location from './pages/Location';
 import Notices from './pages/Notices';
 import Reviews from './pages/Reviews';
 import Help from './pages/Help';
+import Menu from './pages/Menu';
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ function App() {
             <Switch>
               <Route path="/" component={Home} />
               <Route path="/hours" component={Hours} />
+              <Route path="/menu" component={Menu} />
               <Route path="/location" component={Location} />
               <Route path="/notices" component={Notices} />
               <Route path="/reviews" component={Reviews} />
