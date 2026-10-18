@@ -24,7 +24,7 @@ function isStoreOpen() {
   const day = now.getDay();
   const t = now.getHours() + now.getMinutes() / 60;
   if (day === 6) return false;
-  if (day === 5) return t >= 7 && t < 15;
+  if (day === 5) return t >= 7 && t < 16;
   return t >= 7 && t < 21;
 }
 

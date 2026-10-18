@@ -7,7 +7,7 @@ const schedule = [
   { day: "שלישי", time: "07:00 – 21:00", jsDay: 2 },
   { day: "רביעי", time: "07:00 – 21:00", jsDay: 3 },
   { day: "חמישי", time: "07:00 – 21:00", jsDay: 4 },
-  { day: "שישי",  time: "07:00 – 15:00", jsDay: 5 },
+  { day: "שישי",  time: "07:00 – 16:00", jsDay: 5 },
   { day: "שבת",   time: "סגור",           jsDay: 6 },
 ];
 
