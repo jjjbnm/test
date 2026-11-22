@@ -1,5 +1,5 @@
 import { Link, useRoute } from "wouter";
-import { Store, Clock, MapPin, Bell, MessageSquare, HelpCircle, ShoppingBasket } from "lucide-react";
+import { Store, Clock, MapPin, Bell, MessageSquare, HelpCircle, ShoppingBasket, LogIn } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "בית", icon: Store },
@@ -42,6 +42,7 @@ export function Navbar() {
             );
           })}
         </div>
+        <a href="/api/auth/google" className="ml-2 px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2 whitespace-nowrap" style={{ background: "#D1432A", color: "#FBF6EA", border: "2px solid #221C14" }}><LogIn className="w-4 h-4" />התחברות עם Google</a>
       </div>
       {/* Mobile tab bar */}
       <div className="md:hidden flex overflow-x-auto pb-3 px-4 pt-1 gap-2 hide-scrollbar">
